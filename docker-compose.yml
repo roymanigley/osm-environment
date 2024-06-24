@@ -1,0 +1,88 @@
+services:
+  osrm-data:
+    image: osrm/osrm-backend:v5.25.0
+    volumes:
+      - ./osm-data:/data
+    entrypoint: [
+      "osrm-extract",
+      "-p", "/opt/car.lua",
+      "/data/switzerland-latest.osm.pbf"
+    ]
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    profiles: [init]
+
+  osrm-data-partition:
+    image: osrm/osrm-backend:v5.25.0
+    volumes:
+      - ./osm-data:/data
+    entrypoint: [
+      "osrm-partition",
+      "/data/switzerland-latest.osrm"
+    ]
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    profiles: [partition]
+
+  osrm-data-customize:
+    image: osrm/osrm-backend:v5.25.0
+    volumes:
+      - ./osm-data:/data
+    entrypoint: [
+      "osrm-customize",
+      "/data/switzerland-latest.osrm"
+    ]
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    profiles: [customize]
+
+  nominatim-api:
+    image: mediagis/nominatim:4.4
+    ports:
+      - "8082:8080"
+    volumes:
+      - ./osm-data:/data
+      - nominatim-data:/var/lib/postgresql/14/main
+    environment:
+      POSTGRES_PASSWORD: "password"
+      PBF_PATH: "/data/switzerland-latest.osm.pbf"
+      NOMINATIM_PASSWORD: "password"
+      IMPORT_STYLE: "address"
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    profiles: [prod]
+  
+  osrm-api:
+    image: osrm/osrm-backend:v5.25.0
+    ports:
+      - "8081:5000"
+    volumes:
+      - ./osm-data:/data
+    command: [
+      "osrm-routed",
+      "--algorithm", "MLD",
+      "/data/switzerland-latest.osrm"
+    ]
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    profiles: [prod]
+
+  jupyter-notebook:
+    build:
+        context: jupyter-notebook
+    ports:
+      - 8080:8888
+    profiles: [prod]
+
+volumes:
+  nominatim-data:
